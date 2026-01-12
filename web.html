@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Giám Sát Xe Thông Minh</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body { padding-top: 20px; background-color: #f4f6f9; }
+        #map { height: 500px; width: 100%; border-radius: 8px; border: 2px solid #ddd; }
+        .vehicle-card { cursor: pointer; transition: 0.2s; }
+        .vehicle-card:hover { background-color: #e9ecef; }
+        .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; }
+        .online { background-color: #28a745; box-shadow: 0 0 5px #28a745; }
+        .offline { background-color: #6c757d; }
+        .warning-text { color: #dc3545; font-weight: bold; font-size: 0.85em; }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid">
+    <h2 class="text-center mb-4">Dashboard Giám Sát Xe Hơi (IoT OBD-II)</h2>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <span>Danh sách xe</span>
+                    <span class="badge bg-light text-dark" id="vehicle-count">0</span>
+                </div>
+                <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+                    <div id="vehicle-list" class="list-group list-group-flush">
+                        <div class="text-center text-muted">Đang tải dữ liệu...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div id="map"></div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <h5>Chú thích:</h5>
+                <span class="badge bg-success me-2">Online (< 1 phút)</span>
+                <span class="badge bg-secondary me-2">Offline/Mất tín hiệu</span>
+                <span class="badge bg-danger">Cảnh báo (Nhiệt độ/Tốc độ cao)</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBsA0_xFCmVEU5AgjKZDh50WhTe_06Bfgk",
+    authDomain: "esp32-606ff.firebaseapp.com",
+    databaseURL: "https://esp32-606ff-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "esp32-606ff",
+    storageBucket: "esp32-606ff.firebasestorage.app",
+    messagingSenderId: "884972816677",
+    appId: "1:884972816677:web:594fe5876f9acb8ea3f2cc",
+    measurementId: "G-ZSH8JDZ35J"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // map
+  const map = L.map('map').setView([10.7769, 106.7009], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const markers = {};
+
+  const vehiclesRef = ref(db, 'vehicles');
+
+  onValue(vehiclesRef, (snapshot) => {
+    const data = snapshot.val();
+    const vehicleListEl = document.getElementById('vehicle-list');
+    const vehicleCountEl = document.getElementById('vehicle-count');
+
+    if (!data) {
+      vehicleListEl.innerHTML = '<div class="text-center text-muted">Không có dữ liệu xe.</div>';
+      vehicleCountEl.innerText = '0';
+      return;
+    }
+
+    vehicleListEl.innerHTML = '';
+    let count = 0;
+    const now = Date.now();
+
+    for (const [key, car0] of Object.entries(data)) {
+      count++;
+
+      // normalize
+      const car = { ...car0 };
+      car.vin = car.vin || key;
+
+      // gps can be {gps:{lat,lng}} or flat {lat,lng}
+      const lat = (car.gps && typeof car.gps.lat === 'number') ? car.gps.lat : car.lat;
+      const lng = (car.gps && typeof car.gps.lng === 'number') ? car.gps.lng : car.lng;
+
+      // online if uploaded within 60s
+      const ts = Number(car.timestamp || 0);
+      const isOnline = ts > 0 && (now - ts) < 60000;
+
+      const statusClass = isOnline ? 'online' : 'offline';
+      const statusText  = isOnline ? 'Online' : 'Offline';
+
+      // warnings
+      const warnings = [];
+      if (Number(car.coolant_temp) > 100) warnings.push("Nước quá nóng!");
+      if (Number(car.speed) > 120) warnings.push("Quá tốc độ!");
+      const warningHtml = warnings.length
+        ? `<div class="warning-text">⚠️ ${warnings.join(', ')}</div>`
+        : '';
+
+      // sidebar item
+      const listItem = document.createElement('div');
+      listItem.className = 'list-group-item vehicle-card';
+      listItem.onclick = () => { if (lat && lng) map.flyTo([lat, lng], 16); };
+
+      const timeStr = ts ? new Date(ts).toLocaleTimeString('vi-VN') : '--:--:--';
+
+      listItem.innerHTML = `
+        <div class="d-flex w-100 justify-content-between">
+          <h6 class="mb-1 fw-bold">VIN: ${car.vin}</h6>
+          <small><span class="status-dot ${statusClass}"></span> ${statusText}</small>
+        </div>
+        <div class="row text-small mt-2" style="font-size: 0.9em">
+          <div class="col-6">💨 Tốc độ: <b>${car.speed ?? '--'} km/h</b></div>
+          <div class="col-6">⚙️ Tua máy: <b>${car.rpm ?? '--'}</b></div>
+          <div class="col-6">🌡️ Nước: <b>${car.coolant_temp ?? '--'}°C</b></div>
+        </div>
+        ${warningHtml}
+        <small class="text-muted" style="font-size: 0.75em">Cập nhật: ${timeStr}</small>
+      `;
+      vehicleListEl.appendChild(listItem);
+
+      // marker
+      if (typeof lat === 'number' && typeof lng === 'number') {
+        const popupHtml = `
+          <div style="text-align:center">
+            <strong>${car.vin}</strong><br>
+            <span style="color:${isOnline ? 'green' : 'gray'}">● ${statusText}</span>
+            <hr style="margin: 5px 0">
+            Tốc độ: ${car.speed ?? '--'} km/h<br>
+            RPM: ${car.rpm ?? '--'}<br>
+            Nhiệt độ: ${car.coolant_temp ?? '--'}°C
+          </div>
+        `;
+
+        if (markers[car.vin]) {
+          markers[car.vin].setLatLng([lat, lng]);
+          markers[car.vin].setPopupContent(popupHtml);
+        } else {
+          markers[car.vin] = L.marker([lat, lng]).addTo(map).bindPopup(popupHtml);
+        }
+      }
+    }
+
+    vehicleCountEl.innerText = count;
+  });
+</script>
+
+</body>
+</html>
