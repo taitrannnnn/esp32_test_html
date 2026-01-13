@@ -3,174 +3,1542 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ Thống Giám Sát Xe Thông Minh</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Hệ Thống Giám Sát Xe - Dự Án Sinh Viên</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { padding-top: 20px; background-color: #f4f6f9; }
-        #map { height: 500px; width: 100%; border-radius: 8px; border: 2px solid #ddd; }
-        .vehicle-card { cursor: pointer; transition: 0.2s; }
-        .vehicle-card:hover { background-color: #e9ecef; }
-        .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; }
-        .online { background-color: #28a745; box-shadow: 0 0 5px #28a745; }
-        .offline { background-color: #6c757d; }
-        .warning-text { color: #dc3545; font-weight: bold; font-size: 0.85em; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 100%;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo i {
+            font-size: 28px;
+        }
+        
+        .logo h1 {
+            font-size: 22px;
+            font-weight: 600;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 15px;
+            font-size: 14px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .active {
+            background-color: #4caf50;
+        }
+        
+        .inactive {
+            background-color: #f44336;
+        }
+        
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .map-container {
+            flex: 3;
+            padding: 15px;
+            position: relative;
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .map-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .map-btn {
+            background: #1a73e8;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+        }
+        
+        .map-btn:hover {
+            background: #0d47a1;
+        }
+        
+        .sidebar {
+            flex: 1;
+            background-color: white;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: -4px 0 6px rgba(0, 0, 0, 0.05);
+            min-width: 350px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .tab-container {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 15px;
+            overflow-x: auto;
+        }
+        
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .tab.active {
+            border-bottom-color: #1a73e8;
+            color: #1a73e8;
+        }
+        
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #1a73e8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .vehicle-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        
+        .vehicle-card {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid #1a73e8;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .vehicle-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.08);
+        }
+        
+        .vehicle-card.active {
+            border-left-color: #4caf50;
+            background-color: #f0f8f0;
+        }
+        
+        .vehicle-card.inactive {
+            border-left-color: #f44336;
+            background-color: #fff5f5;
+        }
+        
+        .vehicle-card.offline {
+            border-left-color: #9e9e9e;
+            background-color: #f5f5f5;
+            opacity: 0.7;
+        }
+        
+        .vehicle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .vehicle-name {
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .vehicle-status {
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            color: white;
+        }
+        
+        .status-online {
+            background-color: #4caf50;
+        }
+        
+        .status-offline {
+            background-color: #9e9e9e;
+        }
+        
+        .status-moving {
+            background-color: #2196f3;
+        }
+        
+        .vehicle-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 13px;
+        }
+        
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .detail-label {
+            color: #666;
+            font-size: 11px;
+        }
+        
+        .detail-value {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .filter-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 8px 12px;
+            background-color: #f0f0f0;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+            font-size: 12px;
+        }
+        
+        .filter-btn:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .filter-btn.active {
+            background-color: #1a73e8;
+            color: white;
+        }
+        
+        .vehicle-info {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .info-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #1a73e8;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .alerts-container {
+            margin-bottom: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .alert-item {
+            background-color: #fff5f5;
+            border-left: 4px solid #f44336;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 13px;
+        }
+        
+        .alert-item.warning {
+            background-color: #fff8e1;
+            border-left-color: #ff9800;
+        }
+        
+        .alert-item.info {
+            background-color: #e3f2fd;
+            border-left-color: #2196f3;
+        }
+        
+        .alert-icon {
+            font-size: 16px;
+            margin-top: 2px;
+        }
+        
+        .alert-content {
+            flex: 1;
+        }
+        
+        .alert-title {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        
+        .alert-message {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            border-left: 3px solid #1a73e8;
+        }
+        
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a73e8;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .chart-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .chart-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #1a73e8;
+        }
+        
+        .refresh-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        
+        .refresh-btn {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 500;
+            font-size: 13px;
+        }
+        
+        .refresh-btn:hover {
+            background-color: #0d47a1;
+        }
+        
+        .last-update {
+            font-size: 11px;
+            color: #666;
+        }
+        
+        footer {
+            background-color: #1a237e;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+        }
+        
+        .gauge-container {
+            display: flex;
+            justify-content: space-around;
+            margin: 15px 0;
+        }
+        
+        .gauge {
+            text-align: center;
+        }
+        
+        .gauge-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .gauge-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .temp-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .temp-normal {
+            background-color: #4caf50;
+        }
+        
+        .temp-warning {
+            background-color: #ff9800;
+        }
+        
+        .temp-danger {
+            background-color: #f44336;
+        }
+        
+        .speed-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .speed-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #4caf50;
+        }
+        
+        .speed-dot.fast {
+            background-color: #f44336;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 1024px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .map-container {
+                height: 60vh;
+            }
+            
+            .sidebar {
+                height: 40vh;
+                min-width: 100%;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            
+            .status-bar {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            
+            .vehicle-details {
+                grid-template-columns: 1fr;
+            }
+            
+            .info-details {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .map-controls {
+                top: 10px;
+                right: 10px;
+                padding: 8px;
+            }
+            
+            .tab-container {
+                overflow-x: auto;
+            }
+        }
     </style>
 </head>
 <body>
-
-<div class="container-fluid">
-    <h2 class="text-center mb-4">Dashboard Giám Sát Xe Hơi (IoT OBD-II)</h2>
-    
-    <div class="row">
-        <div class="col-md-4">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <span>Danh sách xe</span>
-                    <span class="badge bg-light text-dark" id="vehicle-count">0</span>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-car-side"></i>
+                <h1>HỆ THỐNG GIÁM SÁT XE</h1>
+            </div>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-dot active"></div>
+                    <span>Online: <span id="online-count">0</span></span>
                 </div>
-                <div class="card-body" style="max-height: 500px; overflow-y: auto;">
-                    <div id="vehicle-list" class="list-group list-group-flush">
-                        <div class="text-center text-muted">Đang tải dữ liệu...</div>
+                <div class="status-item">
+                    <div class="status-dot inactive"></div>
+                    <span>Offline: <span id="offline-count">0</span></span>
+                </div>
+                <div class="status-item">
+                    <i class="fas fa-car"></i>
+                    <span>Tổng: <span id="total-count">0</span></span>
+                </div>
+                <div class="status-item">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Đang chạy: <span id="moving-count">0</span></span>
+                </div>
+            </div>
+        </header>
+        
+        <div class="main-content">
+            <div class="map-container">
+                <div id="map"></div>
+                <div class="map-controls">
+                    <button class="map-btn" id="show-all-btn">
+                        <i class="fas fa-expand"></i> Hiện tất cả
+                    </button>
+                    <button class="map-btn" id="clear-routes-btn">
+                        <i class="fas fa-trash-alt"></i> Xóa lộ trình
+                    </button>
+                </div>
+            </div>
+            
+            <div class="sidebar">
+                <div class="tab-container">
+                    <div class="tab active" data-tab="vehicles">Danh sách xe</div>
+                    <div class="tab" data-tab="alerts">Cảnh báo</div>
+                    <div class="tab" data-tab="stats">Thống kê</div>
+                </div>
+                
+                <!-- Tab Danh sách xe -->
+                <div class="tab-content active" id="vehicles-tab">
+                    <div class="filter-controls">
+                        <button class="filter-btn active" data-filter="all">Tất cả</button>
+                        <button class="filter-btn" data-filter="online">Online</button>
+                        <button class="filter-btn" data-filter="offline">Offline</button>
+                        <button class="filter-btn" data-filter="moving">Đang chạy</button>
+                    </div>
+                    
+                    <div class="vehicle-list" id="vehicle-list">
+                        <!-- Danh sách xe sẽ được thêm bằng JavaScript -->
+                        <div class="loading-vehicles">
+                            <p><i class="fas fa-spinner fa-spin"></i> Đang kết nối với Firebase...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="vehicle-info">
+                        <div class="info-title">
+                            <i class="fas fa-info-circle"></i>
+                            Thông tin chi tiết
+                        </div>
+                        <div class="info-details" id="vehicle-details">
+                            <p>Chọn một xe để xem thông tin chi tiết</p>
+                        </div>
+                        
+                        <!-- Gauges cho thông số kỹ thuật -->
+                        <div class="gauge-container" id="vehicle-gauges" style="display: none;">
+                            <div class="gauge">
+                                <div class="gauge-value" id="gauge-speed">0</div>
+                                <div class="gauge-label">KM/H</div>
+                            </div>
+                            <div class="gauge">
+                                <div class="gauge-value" id="gauge-rpm">0</div>
+                                <div class="gauge-label">RPM</div>
+                            </div>
+                            <div class="gauge">
+                                <div class="gauge-value" id="gauge-temp">0</div>
+                                <div class="gauge-label">°C</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tab Cảnh báo -->
+                <div class="tab-content" id="alerts-tab">
+                    <div class="section-title">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Cảnh báo hệ thống
+                    </div>
+                    <div class="alerts-container" id="alerts-container">
+                        <div class="alert-item info">
+                            <div class="alert-icon">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div class="alert-content">
+                                <div class="alert-title">Hệ thống đang chạy</div>
+                                <div class="alert-message">Đang kết nối với Firebase Realtime Database</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="vehicle-info">
+                        <div class="info-title">
+                            <i class="fas fa-cog"></i>
+                            Cài đặt cảnh báo
+                        </div>
+                        <div class="info-details">
+                            <div class="detail-item">
+                                <span class="detail-label">Tốc độ tối đa:</span>
+                                <span class="detail-value">
+                                    <input type="number" id="max-speed" value="80" min="20" max="150" 
+                                           style="width: 70px; padding: 3px; border: 1px solid #ddd; border-radius: 3px;"> km/h
+                                </span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Nhiệt độ cảnh báo:</span>
+                                <span class="detail-value">
+                                    <input type="number" id="max-temp" value="100" min="70" max="120" 
+                                           style="width: 70px; padding: 3px; border: 1px solid #ddd; border-radius: 3px;"> °C
+                                </span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Thời gian offline:</span>
+                                <span class="detail-value">
+                                    <input type="number" id="offline-time" value="10" min="1" max="60" 
+                                           style="width: 70px; padding: 3px; border: 1px solid #ddd; border-radius: 3px;"> phút
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tab Thống kê -->
+                <div class="tab-content" id="stats-tab">
+                    <div class="section-title">
+                        <i class="fas fa-chart-bar"></i>
+                        Thống kê tổng quan
+                    </div>
+                    
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <div class="stat-value" id="avg-speed">0</div>
+                            <div class="stat-label">Tốc độ TB</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="max-speed-stat">0</div>
+                            <div class="stat-label">Tốc độ cao nhất</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="avg-rpm">0</div>
+                            <div class="stat-label">RPM TB</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="avg-temp">0</div>
+                            <div class="stat-label">Nhiệt độ TB</div>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <div class="chart-title">Phân bố trạng thái xe</div>
+                        <canvas id="statusChart" height="150"></canvas>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <div class="chart-title">Tốc độ các xe</div>
+                        <canvas id="speedChart" height="150"></canvas>
+                    </div>
+                </div>
+                
+                <div class="refresh-controls">
+                    <button class="refresh-btn" id="refresh-btn">
+                        <i class="fas fa-sync-alt"></i>
+                        Làm mới dữ liệu
+                    </button>
+                    <div class="last-update">
+                        Cập nhật: <span id="last-update">--:--:--</span>
                     </div>
                 </div>
             </div>
         </div>
-
-        <div class="col-md-8">
-            <div class="card shadow-sm">
-                <div class="card-body p-0">
-                    <div id="map"></div>
-                </div>
-            </div>
-            <div class="mt-3">
-                <h5>Chú thích:</h5>
-                <span class="badge bg-success me-2">Online (< 1 phút)</span>
-                <span class="badge bg-secondary me-2">Offline/Mất tín hiệu</span>
-                <span class="badge bg-danger">Cảnh báo (Nhiệt độ/Tốc độ cao)</span>
-            </div>
-        </div>
+        
+        <footer>
+            <p>Dự án sinh viên - Hệ thống giám sát xe thời gian thực với Firebase</p>
+        </footer>
     </div>
-</div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyBsA0_xFCmVEU5AgjKZDh50WhTe_06Bfgk",
-    authDomain: "esp32-606ff.firebaseapp.com",
-    databaseURL: "https://esp32-606ff-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "esp32-606ff",
-    storageBucket: "esp32-606ff.firebasestorage.app",
-    messagingSenderId: "884972816677",
-    appId: "1:884972816677:web:594fe5876f9acb8ea3f2cc",
-    measurementId: "G-ZSH8JDZ35J"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-
-  // map
-  const map = L.map('map').setView([10.7769, 106.7009], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
-
-  const markers = {};
-
-  const vehiclesRef = ref(db, 'vehicles');
-
-  onValue(vehiclesRef, (snapshot) => {
-    const data = snapshot.val();
-    const vehicleListEl = document.getElementById('vehicle-list');
-    const vehicleCountEl = document.getElementById('vehicle-count');
-
-    if (!data) {
-      vehicleListEl.innerHTML = '<div class="text-center text-muted">Không có dữ liệu xe.</div>';
-      vehicleCountEl.innerText = '0';
-      return;
-    }
-
-    vehicleListEl.innerHTML = '';
-    let count = 0;
-    const now = Date.now();
-
-    for (const [key, car0] of Object.entries(data)) {
-      count++;
-
-      // normalize
-      const car = { ...car0 };
-      car.vin = car.vin || key;
-
-      // gps can be {gps:{lat,lng}} or flat {lat,lng}
-      const lat = (car.gps && typeof car.gps.lat === 'number') ? car.gps.lat : car.lat;
-      const lng = (car.gps && typeof car.gps.lng === 'number') ? car.gps.lng : car.lng;
-
-      // online if uploaded within 60s
-      const ts = Number(car.timestamp || 0);
-      const isOnline = ts > 0 && (now - ts) < 60000;
-
-      const statusClass = isOnline ? 'online' : 'offline';
-      const statusText  = isOnline ? 'Online' : 'Offline';
-
-      // warnings
-      const warnings = [];
-      if (Number(car.coolant_temp) > 100) warnings.push("Nước quá nóng!");
-      if (Number(car.speed) > 120) warnings.push("Quá tốc độ!");
-      const warningHtml = warnings.length
-        ? `<div class="warning-text">⚠️ ${warnings.join(', ')}</div>`
-        : '';
-
-      // sidebar item
-      const listItem = document.createElement('div');
-      listItem.className = 'list-group-item vehicle-card';
-      listItem.onclick = () => { if (lat && lng) map.flyTo([lat, lng], 16); };
-
-      const timeStr = ts ? new Date(ts).toLocaleTimeString('vi-VN') : '--:--:--';
-
-      listItem.innerHTML = `
-        <div class="d-flex w-100 justify-content-between">
-          <h6 class="mb-1 fw-bold">VIN: ${car.vin}</h6>
-          <small><span class="status-dot ${statusClass}"></span> ${statusText}</small>
-        </div>
-        <div class="row text-small mt-2" style="font-size: 0.9em">
-          <div class="col-6">💨 Tốc độ: <b>${car.speed ?? '--'} km/h</b></div>
-          <div class="col-6">⚙️ Tua máy: <b>${car.rpm ?? '--'}</b></div>
-          <div class="col-6">🌡️ Nước: <b>${car.coolant_temp ?? '--'}°C</b></div>
-        </div>
-        ${warningHtml}
-        <small class="text-muted" style="font-size: 0.75em">Cập nhật: ${timeStr}</small>
-      `;
-      vehicleListEl.appendChild(listItem);
-
-      // marker
-      if (typeof lat === 'number' && typeof lng === 'number') {
-        const popupHtml = `
-          <div style="text-align:center">
-            <strong>${car.vin}</strong><br>
-            <span style="color:${isOnline ? 'green' : 'gray'}">● ${statusText}</span>
-            <hr style="margin: 5px 0">
-            Tốc độ: ${car.speed ?? '--'} km/h<br>
-            RPM: ${car.rpm ?? '--'}<br>
-            Nhiệt độ: ${car.coolant_temp ?? '--'}°C
-          </div>
-        `;
-
-        if (markers[car.vin]) {
-          markers[car.vin].setLatLng([lat, lng]);
-          markers[car.vin].setPopupContent(popupHtml);
-        } else {
-          markers[car.vin] = L.marker([lat, lng]).addTo(map).bindPopup(popupHtml);
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    
+    <script>
+        // Cấu hình Firebase - THAY THẾ BẰNG CẤU HÌNH CỦA BẠN
+        const firebaseConfig = {
+            apiKey: "AIzaSyD-kqyY29XKpRhOqIq1uJkZxHjezGQl-jE",
+            authDomain: "esp32-606ff.firebaseapp.com",
+            databaseURL: "https://esp32-606ff-default-rtdb.asia-south1.firebasedatabase.app",
+            projectId: "esp32-606ff",
+            storageBucket: "esp32-606ff.firebasestorage.app",
+            messagingSenderId: "1094792521924",
+            appId: "1:1094792521924:web:2e8cc8a7f6e32438e06ba5"
+        };
+        
+        // Khởi tạo Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
+        // Khởi tạo bản đồ
+        const map = L.map('map').setView([10.8231, 106.6297], 12);
+        
+        // Thêm tile layer cho bản đồ
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Biến toàn cục
+        let vehicles = {};
+        let markers = {};
+        let polylines = {};
+        let selectedVehicleId = null;
+        let currentFilter = 'all';
+        let statusChartInstance = null;
+        let speedChartInstance = null;
+        let alerts = [];
+        
+        // Cài đặt cảnh báo
+        let maxSpeed = 80;
+        let maxTemp = 100;
+        let offlineTime = 10; // phút
+        
+        // Hàm chuyển đổi epoch milliseconds sang thời gian đọc được
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return "Chưa cập nhật";
+            
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            
+            if (diffMins < 1) {
+                return "Vừa xong";
+            } else if (diffMins < 60) {
+                return `${diffMins} phút trước`;
+            } else if (diffMins < 1440) {
+                const diffHours = Math.floor(diffMins / 60);
+                return `${diffHours} giờ trước`;
+            } else {
+                return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN');
+            }
         }
-      }
-    }
-
-    vehicleCountEl.innerText = count;
-  });
-</script>
-
+        
+        // Hàm định dạng thời gian đầy đủ
+        function formatFullTime(timestamp) {
+            if (!timestamp) return "Không có dữ liệu";
+            
+            const date = new Date(timestamp);
+            return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN');
+        }
+        
+        // Hàm xác định trạng thái xe
+        function getVehicleStatus(vehicle) {
+            if (!vehicle) return 'unknown';
+            
+            const now = Date.now();
+            const lastUpdate = vehicle.timestamp || 0;
+            const timeDiff = now - lastUpdate;
+            
+            // Nếu không có dữ liệu online, sử dụng timestamp để xác định
+            if (vehicle.online === 0) {
+                return 'offline';
+            } else if (vehicle.online === 1) {
+                if (timeDiff > 300000) { // 5 phút
+                    return 'offline';
+                } else if (vehicle.speed_kph > 0) {
+                    return 'moving';
+                } else {
+                    return 'online';
+                }
+            } else {
+                // Nếu không có trường online
+                if (timeDiff > 300000) {
+                    return 'offline';
+                } else if (vehicle.speed_kph > 0) {
+                    return 'moving';
+                } else {
+                    return 'online';
+                }
+            }
+        }
+        
+        // Hàm xác định màu sắc cho nhiệt độ
+        function getTempColor(temp) {
+            if (!temp) return 'temp-normal';
+            
+            if (temp >= 100) {
+                return 'temp-danger';
+            } else if (temp >= 90) {
+                return 'temp-warning';
+            } else {
+                return 'temp-normal';
+            }
+        }
+        
+        // Hàm xác định màu sắc cho tốc độ
+        function getSpeedColor(speed) {
+            if (!speed) return '';
+            
+            if (speed > 80) {
+                return 'fast';
+            } else {
+                return '';
+            }
+        }
+        
+        // Hàm thêm cảnh báo
+        function addAlert(type, title, message, vehicleId = null) {
+            const alertId = Date.now();
+            const alert = {
+                id: alertId,
+                type: type,
+                title: title,
+                message: message,
+                vehicleId: vehicleId,
+                timestamp: Date.now()
+            };
+            
+            alerts.unshift(alert); // Thêm vào đầu mảng
+            if (alerts.length > 20) {
+                alerts.pop(); // Giới hạn 20 cảnh báo
+            }
+            
+            updateAlertsDisplay();
+            
+            // Hiển thị thông báo ngắn cho cảnh báo quan trọng
+            if (type === 'warning' || type === 'danger') {
+                showNotification(title, message);
+            }
+        }
+        
+        // Hàm hiển thị thông báo
+        function showNotification(title, message) {
+            // Tạo thông báo tạm thời
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: white;
+                padding: 15px;
+                border-radius: 5px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                border-left: 4px solid #ff9800;
+                z-index: 9999;
+                max-width: 300px;
+                animation: slideIn 0.3s ease;
+            `;
+            
+            notification.innerHTML = `
+                <div style="font-weight: 600; margin-bottom: 5px;">${title}</div>
+                <div style="font-size: 13px; color: #666;">${message}</div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Tự động xóa sau 5 giây
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 5000);
+            
+            // Thêm CSS animation
+            if (!document.querySelector('#notification-styles')) {
+                const style = document.createElement('style');
+                style.id = 'notification-styles';
+                style.textContent = `
+                    @keyframes slideIn {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                    @keyframes slideOut {
+                        from { transform: translateX(0); opacity: 1; }
+                        to { transform: translateX(100%); opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+        
+        // Hàm cập nhật hiển thị cảnh báo
+        function updateAlertsDisplay() {
+            const alertsContainer = document.getElementById('alerts-container');
+            alertsContainer.innerHTML = '';
+            
+            if (alerts.length === 0) {
+                alertsContainer.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Không có cảnh báo</p>';
+                return;
+            }
+            
+            alerts.forEach(alert => {
+                const alertElement = document.createElement('div');
+                alertElement.className = `alert-item ${alert.type}`;
+                
+                let icon = 'info-circle';
+                if (alert.type === 'warning') icon = 'exclamation-triangle';
+                if (alert.type === 'danger') icon = 'exclamation-circle';
+                
+                alertElement.innerHTML = `
+                    <div class="alert-icon">
+                        <i class="fas fa-${icon}"></i>
+                    </div>
+                    <div class="alert-content">
+                        <div class="alert-title">${alert.title}</div>
+                        <div class="alert-message">${alert.message} • ${formatTimestamp(alert.timestamp)}</div>
+                    </div>
+                `;
+                
+                alertsContainer.appendChild(alertElement);
+            });
+        }
+        
+        // Hàm kiểm tra và thêm cảnh báo cho xe
+        function checkVehicleAlerts(vehicleId, vehicle) {
+            const status = getVehicleStatus(vehicle);
+            const now = Date.now();
+            const lastUpdate = vehicle.timestamp || 0;
+            const timeDiff = now - lastUpdate;
+            
+            // Kiểm tra tốc độ vượt quá giới hạn
+            if (vehicle.speed_kph > maxSpeed) {
+                addAlert('warning', 
+                    `Vượt tốc độ: ${vehicleId}`,
+                    `Tốc độ: ${vehicle.speed_kph} km/h (vượt quá ${maxSpeed} km/h)`,
+                    vehicleId
+                );
+            }
+            
+            // Kiểm tra nhiệt độ quá cao
+            if (vehicle.coolant_c > maxTemp) {
+                addAlert('danger',
+                    `Nhiệt độ cao: ${vehicleId}`,
+                    `Nhiệt độ: ${vehicle.coolant_c}°C (vượt quá ${maxTemp}°C)`,
+                    vehicleId
+                );
+            }
+            
+            // Kiểm tra mất kết nối
+            if (status === 'offline' && timeDiff > offlineTime * 60000) {
+                addAlert('warning',
+                    `Xe mất kết nối: ${vehicleId}`,
+                    `Không cập nhật trong ${Math.floor(timeDiff / 60000)} phút`,
+                    vehicleId
+                );
+            }
+            
+            // Kiểm tra xe bắt đầu di chuyển sau khi dừng
+            if (vehicle.speed_kph > 0 && vehicle.lastSpeed === 0) {
+                addAlert('info',
+                    `Xe bắt đầu di chuyển: ${vehicleId}`,
+                    `Tốc độ: ${vehicle.speed_kph} km/h`,
+                    vehicleId
+                );
+            }
+        }
+        
+        // Hàm cập nhật danh sách xe
+        function updateVehicleList() {
+            const vehicleList = document.getElementById('vehicle-list');
+            
+            // Lọc xe theo bộ lọc hiện tại
+            const filteredVehicles = Object.entries(vehicles).filter(([id, vehicle]) => {
+                const status = getVehicleStatus(vehicle);
+                
+                if (currentFilter === 'all') return true;
+                if (currentFilter === 'online') return status === 'online' || status === 'moving';
+                if (currentFilter === 'offline') return status === 'offline';
+                if (currentFilter === 'moving') return status === 'moving';
+                return true;
+            });
+            
+            // Đếm số lượng xe theo trạng thái
+            let onlineCount = 0;
+            let offlineCount = 0;
+            let movingCount = 0;
+            
+            Object.values(vehicles).forEach(vehicle => {
+                const status = getVehicleStatus(vehicle);
+                if (status === 'online' || status === 'moving') onlineCount++;
+                if (status === 'offline') offlineCount++;
+                if (status === 'moving') movingCount++;
+            });
+            
+            // Cập nhật số lượng xe
+            document.getElementById('online-count').textContent = onlineCount;
+            document.getElementById('offline-count').textContent = offlineCount;
+            document.getElementById('total-count').textContent = Object.keys(vehicles).length;
+            document.getElementById('moving-count').textContent = movingCount;
+            
+            // Hiển thị danh sách xe
+            if (filteredVehicles.length === 0) {
+                vehicleList.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Không có xe nào</p>';
+                return;
+            }
+            
+            vehicleList.innerHTML = '';
+            
+            filteredVehicles.forEach(([id, vehicle]) => {
+                const status = getVehicleStatus(vehicle);
+                const statusText = 
+                    status === 'moving' ? 'Đang chạy' : 
+                    status === 'online' ? 'Đang hoạt động' : 
+                    'Offline';
+                
+                const statusClass = 
+                    status === 'moving' ? 'status-moving' : 
+                    status === 'online' ? 'status-online' : 
+                    'status-offline';
+                
+                const tempColor = getTempColor(vehicle.coolant_c);
+                const speedColor = getSpeedColor(vehicle.speed_kph);
+                
+                const vehicleCard = document.createElement('div');
+                vehicleCard.className = `vehicle-card ${status}`;
+                vehicleCard.dataset.id = id;
+                
+                vehicleCard.innerHTML = `
+                    <div class="vehicle-header">
+                        <div class="vehicle-name">${id}</div>
+                        <div class="vehicle-status ${statusClass}">${statusText}</div>
+                    </div>
+                    <div class="vehicle-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Tốc độ:</span>
+                            <span class="detail-value">
+                                <span class="speed-indicator">
+                                    <span class="speed-dot ${speedColor}"></span>
+                                    ${vehicle.speed_kph || 0} km/h
+                                </span>
+                            </span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">RPM:</span>
+                            <span class="detail-value">${vehicle.rpm || 0}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Nhiệt độ:</span>
+                            <span class="detail-value">
+                                <span class="temp-indicator ${tempColor}"></span>
+                                ${vehicle.coolant_c || 0}°C
+                            </span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Cập nhật:</span>
+                            <span class="detail-value">${formatTimestamp(vehicle.timestamp)}</span>
+                        </div>
+                    </div>
+                `;
+                
+                vehicleCard.addEventListener('click', () => selectVehicle(id));
+                vehicleList.appendChild(vehicleCard);
+            });
+            
+            // Cập nhật thời gian cập nhật cuối cùng
+            document.getElementById('last-update').textContent = new Date().toLocaleTimeString('vi-VN');
+        }
+        
+        // Hàm hiển thị thông tin chi tiết xe
+        function showVehicleDetails(id) {
+            const vehicle = vehicles[id];
+            if (!vehicle) {
+                document.getElementById('vehicle-details').innerHTML = '<p>Không tìm thấy thông tin xe</p>';
+                document.getElementById('vehicle-gauges').style.display = 'none';
+                return;
+            }
+            
+            const status = getVehicleStatus(vehicle);
+            const statusText = 
+                status === 'moving' ? 'Đang di chuyển' : 
+                status === 'online' ? 'Đang hoạt động' : 
+                'Đã dừng/Offline';
+            
+            const tempColor = getTempColor(vehicle.coolant_c);
+            const speedColor = getSpeedColor(vehicle.speed_kph);
+            
+            document.getElementById('vehicle-details').innerHTML = `
+                <div class="detail-item">
+                    <span class="detail-label">Tên xe:</span>
+                    <span class="detail-value">${id}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Trạng thái:</span>
+                    <span class="detail-value">${statusText}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Tốc độ:</span>
+                    <span class="detail-value">
+                        <span class="speed-indicator">
+                            <span class="speed-dot ${speedColor}"></span>
+                            ${vehicle.speed_kph || 0} km/h
+                        </span>
+                    </span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">RPM:</span>
+                    <span class="detail-value">${vehicle.rpm || 0}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Nhiệt độ làm mát:</span>
+                    <span class="detail-value">
+                        <span class="temp-indicator ${tempColor}"></span>
+                        ${vehicle.coolant_c || 0}°C
+                    </span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Vị trí:</span>
+                    <span class="detail-value">${(vehicle.lat || 0).toFixed(6)}, ${(vehicle.lng || 0).toFixed(6)}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Trạng thái kết nối:</span>
+                    <span class="detail-value">${vehicle.online === 1 ? 'Online' : 'Offline'}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Cập nhật lần cuối:</span>
+                    <span class="detail-value">${formatFullTime(vehicle.timestamp)}</span>
+                </div>
+            `;
+            
+            // Cập nhật gauges
+            document.getElementById('gauge-speed').textContent = vehicle.speed_kph || 0;
+            document.getElementById('gauge-rpm').textContent = vehicle.rpm || 0;
+            document.getElementById('gauge-temp').textContent = vehicle.coolant_c || 0;
+            document.getElementById('vehicle-gauges').style.display = 'flex';
+        }
+        
+        // Hàm chọn xe
+        function selectVehicle(id) {
+            selectedVehicleId = id;
+            
+            // Cập nhật giao diện
+            document.querySelectorAll('.vehicle-card').forEach(card => {
+                card.classList.remove('selected');
+                if (card.dataset.id === id) {
+                    card.classList.add('selected');
+                }
+            });
+            
+            // Hiển thị thông tin chi tiết
+            showVehicleDetails(id);
+            
+            // Di chuyển bản đồ đến vị trí xe
+            const vehicle = vehicles[id];
+            if (vehicle && vehicle.lat && vehicle.lng) {
+                map.setView([vehicle.lat, vehicle.lng], 14);
+                
+                // Làm nổi bật marker
+                Object.values(markers).forEach(marker => {
+                    marker.setOpacity(0.7);
+                });
+                
+                if (markers[id]) {
+                    markers[id].setOpacity(1);
+                    markers[id].openPopup();
+                }
+            }
+            
+            // Nếu đang ở tab cảnh báo, lọc cảnh báo theo xe
+            if (document.getElementById('alerts-tab').classList.contains('active')) {
+                // Có thể thêm chức năng lọc cảnh báo theo xe ở đây
+            }
+        }
+        
+        // Hàm cập nhật bản đồ với các marker
+        function updateMap() {
+            // Xóa tất cả marker cũ
+            Object.values(markers).forEach(marker => {
+                marker.remove();
+            });
+            markers = {};
+            
+            // Thêm marker mới cho mỗi xe
+            Object.entries(vehicles).forEach(([id, vehicle]) => {
+                if (!vehicle.lat || !vehicle.lng) return;
+                
+                const status = getVehicleStatus(vehicle);
+                
+                // Chọn icon dựa trên trạng thái
+                let iconColor;
+                if (status === 'moving') iconColor = '#2196f3'; // Xanh dương
+                else if (status === 'online') iconColor = '#4caf50'; // Xanh lá
+                else iconColor = '#9e9e9e'; // Xám
+                
+                // Tạo marker
+                const marker = L.marker([vehicle.lat, vehicle.lng], {
+                    icon: L.divIcon({
+                        className: 'custom-marker',
+                        html: `<div style="background-color: ${iconColor}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10]
+                    })
+                }).addTo(map);
+                
+                // Thêm popup cho marker
+                const lastUpdate = formatTimestamp(vehicle.timestamp);
+                marker.bindPopup(`
+                    <b>${id}</b><br>
+                    Tốc độ: ${vehicle.speed_kph || 0} km/h<br>
+                    RPM: ${vehicle.rpm || 0}<br>
+                    Nhiệt độ: ${vehicle.coolant_c || 0}°C<br>
+                    Trạng thái: ${vehicle.online === 1 ? 'Online' : 'Offline'}<br>
+                    Cập nhật: ${lastUpdate}
+                `);
+                
+                // Sự kiện click marker
+                marker.on('click', () => selectVehicle(id));
+                
+                markers[id] = marker;
+            });
+        }
+        
+        // Hàm cập nhật thống kê
+        function updateStats() {
+            let totalSpeed = 0;
+            let totalRpm = 0;
+            let totalTemp = 0;
+            let maxSpeed = 0;
+            let count = 0;
+            
+            Object.values(vehicles).forEach(vehicle => {
+                if (vehicle.speed_kph !== undefined) {
+                    totalSpeed += vehicle.speed_kph;
+                    if (vehicle.speed_kph > maxSpeed) maxSpeed = vehicle.speed_kph;
+                }
+                if (vehicle.rpm !== undefined) totalRpm += vehicle.rpm;
+                if (vehicle.coolant_c !== undefined) totalTemp += vehicle.coolant_c;
+                count++;
+            });
+            
+            // Cập nhật thống kê
+            document.getElementById('avg-speed').textContent = count > 0 ? Math.round(totalSpeed / count) : 0;
+            document.getElementById('max-speed-stat').textContent = maxSpeed;
+            document.getElementById('avg-rpm').textContent = count > 0 ? Math.round(totalRpm / count) : 0;
+            document.getElementById('avg-temp').textContent = count > 0 ? Math.round(totalTemp / count) : 0;
+            
+            // Cập nhật biểu đồ
+            updateCharts();
+        }
+        
+        // Hàm cập nhật biểu đồ
+        function updateCharts() {
+            // Biểu đồ phân bố trạng thái
+            const statusCtx = document.getElementById('statusChart').getContext('2d');
+            
+            let onlineCount = 0;
+            let movingCount = 0;
+            let offlineCount = 0;
+            
+            Object.values(vehicles).forEach(vehicle => {
+                const status = getVehicleStatus(vehicle);
+                if (status === 'moving') movingCount++;
+                else if (status === 'online') onlineCount++;
+                else offlineCount++;
+            });
+            
+            if (statusChartInstance) {
+                statusChartInstance.destroy();
+            }
+            
+            statusChartInstance = new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Đang chạy', 'Đang hoạt động', 'Offline'],
+                    datasets: [{
+                        data: [movingCount, onlineCount, offlineCount],
+                        backgroundColor: [
+                            '#2196f3',
+                            '#4caf50',
+                            '#9e9e9e'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Biểu đồ tốc độ
+            const speedCtx = document.getElementById('speedChart').getContext('2d');
+            
+            const vehicleIds = Object.keys(vehicles).slice(0, 5);
+            const speeds = vehicleIds.map(id => vehicles[id].speed_kph || 0);
+            
+            if (speedChartInstance) {
+                speedChartInstance.destroy();
+            }
+            
+            speedChartInstance = new Chart(speedCtx, {
+                type: 'bar',
+                data: {
+                    labels: vehicleIds,
+                    datasets: [{
+                        label: 'Tốc độ (km/h)',
+                        data: speeds,
+                        backgroundColor: '#1a73e8',
+                        borderColor: '#0d47a1',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'km/h'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Hàm xử lý dữ liệu từ Firebase
+        function processFirebaseData(snapshot) {
+            const data = snapshot.val();
+            vehicles = {};
+            
+            if (!data) {
+                console.log("Không có dữ liệu từ Firebase");
+                return;
+            }
+            
+            // Duyệt qua tất cả các xe trong Firebase
+            Object.keys(data).forEach(vehicleId => {
+                const vehicleData = data[vehicleId];
+                
+                // Chỉ lấy các xe có dữ liệu đầy đủ (có gps)
+                if (vehicleData && vehicleData.gps) {
+                    vehicles[vehicleId] = {
+                        lat: vehicleData.gps.lat || 0,
+                        lng: vehicleData.gps.lng || 0,
+                        speed_kph: vehicleData.speed_kph || 0,
+                        rpm: vehicleData.rpm || 0,
+                        coolant_c: vehicleData.coolant_c || 0,
+                        online: vehicleData.online || 0,
+                        timestamp: vehicleData.timestamp || Date.now()
+                    };
+                    
+                    // Kiểm tra cảnh báo
+                    checkVehicleAlerts(vehicleId, vehicles[vehicleId]);
+                }
+            });
+            
+            // Cập nhật giao diện
+            updateMap();
+            updateVehicleList();
+            updateStats();
+            
+            // Chọn xe đầu tiên nếu chưa có xe nào được chọn
+            if (!selectedVehicleId && Object.keys(vehicles).length > 0) {
+                selectVehicle(Object.keys(vehicles)[0]);
+            }
+        }
+        
+        // Hàm khởi tạo
+        function init() {
+            // Kết nối với Firebase Realtime Database
+            const vehiclesRef = database.ref('vehicles');
+            
+            // Lắng nghe thay đổi dữ liệu
+            vehiclesRef.on('value', (snapshot) => {
+                processFirebaseData(snapshot);
+            }, (error) => {
+                console.error("Lỗi kết nối Firebase:", error);
+                addAlert('danger', 'Lỗi kết nối', 'Không thể kết nối với Firebase');
+            });
+            
+            // Thiết lập sự kiện cho các nút lọc
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentFilter = this.dataset.filter;
+                    updateVehicleList();
+                });
+            });
+            
+            // Thiết lập sự kiện cho các tab
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.dataset.tab;
+                    
+                    // Xóa active của tất cả các tab
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    // Kích hoạt tab được chọn
+                    this.classList.add('active');
+                    document.getElementById(`${tabId}-tab`).classList.add('active');
+                    
+                    // Cập nhật nội dung tab
+                    if (tabId === 'stats') {
+                        updateStats();
+                    }
+                });
+            });
+            
+            // Thiết lập sự kiện cho nút làm mới
+            document.getElementById('refresh-btn').addEventListener('click', () => {
+                // Tải lại dữ liệu từ Firebase
+                vehiclesRef.once('value').then(processFirebaseData);
+                addAlert('info', 'Làm mới dữ liệu', 'Đang tải dữ liệu mới nhất từ Firebase');
+            });
+            
+            // Thiết lập sự kiện cho nút hiển thị tất cả xe trên bản đồ
+            document.getElementById('show-all-btn').addEventListener('click', function() {
+                if (Object.keys(vehicles).length > 0) {
+                    // Tìm bounds của tất cả các marker
+                    const bounds = L.latLngBounds();
+                    Object.values(vehicles).forEach(vehicle => {
+                        if (vehicle.lat && vehicle.lng) {
+                            bounds.extend([vehicle.lat, vehicle.lng]);
+                        }
+                    });
+                    map.fitBounds(bounds);
+                }
+            });
+            
+            // Thiết lập sự kiện cho nút xóa lộ trình
+            document.getElementById('clear-routes-btn').addEventListener('click', function() {
+                Object.values(polylines).forEach(polyline => {
+                    polyline.remove();
+                });
+                polylines = {};
+            });
+            
+            // Thiết lập sự kiện cho cài đặt cảnh báo
+            document.getElementById('max-speed').addEventListener('change', function() {
+                maxSpeed = parseInt(this.value) || 80;
+            });
+            
+            document.getElementById('max-temp').addEventListener('change', function() {
+                maxTemp = parseInt(this.value) || 100;
+            });
+            
+            document.getElementById('offline-time').addEventListener('change', function() {
+                offlineTime = parseInt(this.value) || 10;
+            });
+            
+            // Thêm cảnh báo khởi động hệ thống
+            addAlert('info', 'Hệ thống đã khởi động', 'Kết nối Firebase thành công');
+        }
+        
+        // Khởi động ứng dụng khi trang đã tải xong
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
 </body>
 </html>
