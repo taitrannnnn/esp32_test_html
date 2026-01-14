@@ -1184,8 +1184,12 @@ const firebaseConfig = {
                     </span>
                 </div>
                 <div class="detail-item">
-                    <span class="detail-label">Vị trí:</span>
-                    <span class="detail-value">${(vehicle.lat || 0).toFixed(6)}, ${(vehicle.lng || 0).toFixed(6)}</span>
+                    <span class="detail-label">Tọa độ (E5):</span>
+                    <span class="detail-value">${vehicle.lat_e5 || 0}, ${vehicle.lng_e5 || 0}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Tọa độ (thực):</span>
+                    <span class="detail-value">${vehicle.lat ? vehicle.lat.toFixed(6) : 0}, ${vehicle.lng ? vehicle.lng.toFixed(6) : 0}</span>
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Trạng thái kết nối:</span>
@@ -1251,7 +1255,10 @@ const firebaseConfig = {
             
             // Thêm marker mới cho mỗi xe
             Object.entries(vehicles).forEach(([id, vehicle]) => {
-                if (!vehicle.lat || !vehicle.lng) return;
+                if (!vehicle.lat || !vehicle.lng) {
+                    console.log(`Xe ${id} không có tọa độ hợp lệ: lat=${vehicle.lat}, lng=${vehicle.lng}`);
+                    return;
+                }
                 
                 const status = getVehicleStatus(vehicle);
                 
@@ -1279,14 +1286,28 @@ const firebaseConfig = {
                     RPM: ${vehicle.rpm || 0}<br>
                     Nhiệt độ: ${vehicle.coolant_c || 0}°C<br>
                     Trạng thái: ${vehicle.online === 1 ? 'Online' : 'Offline'}<br>
-                    Cập nhật: ${lastUpdate}
+                    Cập nhật: ${lastUpdate}<br>
+                    Vị trí: ${vehicle.lat.toFixed(6)}, ${vehicle.lng.toFixed(6)}
                 `);
                 
                 // Sự kiện click marker
                 marker.on('click', () => selectVehicle(id));
                 
                 markers[id] = marker;
+                
+                console.log(`Đã thêm marker cho xe ${id} tại ${vehicle.lat}, ${vehicle.lng}`);
             });
+            
+            // Nếu có xe, fit bounds
+            if (Object.keys(markers).length > 0) {
+                const bounds = L.latLngBounds();
+                Object.values(vehicles).forEach(vehicle => {
+                    if (vehicle.lat && vehicle.lng) {
+                        bounds.extend([vehicle.lat, vehicle.lng]);
+                    }
+                });
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
         }
         
         // Hàm cập nhật thống kê
@@ -1408,36 +1429,101 @@ const firebaseConfig = {
             });
         }
         
-        // Hàm xử lý dữ liệu từ Firebase
+        // Hàm xử lý dữ liệu từ Firebase với định dạng lat_e5/lng_e5
         function processFirebaseData(snapshot) {
             const data = snapshot.val();
             vehicles = {};
             
             if (!data) {
                 console.log("Không có dữ liệu từ Firebase");
+                addAlert('info', 'Không có dữ liệu', 'Firebase trống, đang chờ dữ liệu từ thiết bị');
                 return;
             }
             
-            // Duyệt qua tất cả các xe trong Firebase
-            Object.keys(data).forEach(vehicleId => {
-                const vehicleData = data[vehicleId];
+            console.log("Dữ liệu Firebase nhận được:", data);
+            
+            // Xử lý các cấu trúc dữ liệu khác nhau
+            if (data.SIM_VIN_car1) {
+                // Cấu trúc từ file content
+                const vehicleData = data.SIM_VIN_car1;
+                const vehicleId = "car1";
                 
-                // Chỉ lấy các xe có dữ liệu đầy đủ (có gps)
-                if (vehicleData && vehicleData.gps) {
-                    vehicles[vehicleId] = {
-                        lat: vehicleData.gps.lat || 0,
-                        lng: vehicleData.gps.lng || 0,
-                        speed_kph: vehicleData.speed_kph || 0,
-                        rpm: vehicleData.rpm || 0,
-                        coolant_c: vehicleData.coolant_c || 0,
-                        online: vehicleData.online || 0,
-                        timestamp: vehicleData.timestamp || Date.now()
-                    };
-                    
-                    // Kiểm tra cảnh báo
-                    checkVehicleAlerts(vehicleId, vehicles[vehicleId]);
+                // Xử lý tọa độ từ lat_e5 và lng_e5
+                let lat = 0;
+                let lng = 0;
+                
+                if (vehicleData.lat_e5 !== undefined) {
+                    lat = vehicleData.lat_e5 / 100000; // Chia cho 100000 để có tọa độ đúng
                 }
-            });
+                
+                if (vehicleData.lng_e5 !== undefined) {
+                    lng = vehicleData.lng_e5 / 100000; // Chia cho 100000 để có tọa độ đúng
+                }
+                
+                vehicles[vehicleId] = {
+                    lat: lat,
+                    lng: lng,
+                    lat_e5: vehicleData.lat_e5 || 0,
+                    lng_e5: vehicleData.lng_e5 || 0,
+                    speed_kph: vehicleData.speed_kph || vehicleData.speed || 0,
+                    rpm: vehicleData.rpm || 0,
+                    coolant_c: vehicleData.coolant_c || vehicleData.coolant_temp || 0,
+                    online: vehicleData.online || 0,
+                    timestamp: vehicleData.timestamp || Date.now(),
+                    rawData: vehicleData
+                };
+                
+                console.log(`Đã xử lý xe ${vehicleId}:`, vehicles[vehicleId]);
+                
+                // Kiểm tra cảnh báo
+                checkVehicleAlerts(vehicleId, vehicles[vehicleId]);
+                
+            } else {
+                // Duyệt qua tất cả các xe trong Firebase
+                Object.keys(data).forEach(vehicleId => {
+                    const vehicleData = data[vehicleId];
+                    
+                    if (vehicleData && typeof vehicleData === 'object') {
+                        // Xử lý tọa độ từ lat_e5 và lng_e5
+                        let lat = 0;
+                        let lng = 0;
+                        
+                        if (vehicleData.lat_e5 !== undefined) {
+                            lat = vehicleData.lat_e5 / 100000;
+                        } else if (vehicleData.gps && vehicleData.gps.lat_e5 !== undefined) {
+                            lat = vehicleData.gps.lat_e5 / 100000;
+                        } else if (vehicleData.gps && vehicleData.gps.lat !== undefined) {
+                            lat = vehicleData.gps.lat;
+                        }
+                        
+                        if (vehicleData.lng_e5 !== undefined) {
+                            lng = vehicleData.lng_e5 / 100000;
+                        } else if (vehicleData.gps && vehicleData.gps.lng_e5 !== undefined) {
+                            lng = vehicleData.gps.lng_e5 / 100000;
+                        } else if (vehicleData.gps && vehicleData.gps.lng !== undefined) {
+                            lng = vehicleData.gps.lng;
+                        }
+                        
+                        vehicles[vehicleId] = {
+                            lat: lat,
+                            lng: lng,
+                            lat_e5: vehicleData.lat_e5 || (vehicleData.gps && vehicleData.gps.lat_e5) || 0,
+                            lng_e5: vehicleData.lng_e5 || (vehicleData.gps && vehicleData.gps.lng_e5) || 0,
+                            speed_kph: vehicleData.speed_kph || vehicleData.speed || 0,
+                            rpm: vehicleData.rpm || 0,
+                            coolant_c: vehicleData.coolant_c || vehicleData.coolant_temp || 0,
+                            online: vehicleData.online || 0,
+                            timestamp: vehicleData.timestamp || Date.now(),
+                            rawData: vehicleData
+                        };
+                        
+                        console.log(`Đã xử lý xe ${vehicleId}:`, vehicles[vehicleId]);
+                        
+                        // Kiểm tra cảnh báo
+                        checkVehicleAlerts(vehicleId, vehicles[vehicleId]);
+                    }
+                });
+            }
             
             // Cập nhật giao diện
             updateMap();
@@ -1453,14 +1539,33 @@ const firebaseConfig = {
         // Hàm khởi tạo
         function init() {
             // Kết nối với Firebase Realtime Database
-            const vehiclesRef = database.ref('vehicles');
+            console.log("Đang kết nối với Firebase...");
             
-            // Lắng nghe thay đổi dữ liệu
+            // Thử kết nối với nhiều đường dẫn khác nhau
+            const vehiclesRef = database.ref('vehicles');
+            const rootRef = database.ref('/');
+            
+            // Lắng nghe thay đổi dữ liệu từ đường dẫn gốc để debug
+            rootRef.once('value').then((snapshot) => {
+                console.log("Cấu trúc dữ liệu Firebase (gốc):", snapshot.val());
+            }).catch(error => {
+                console.error("Lỗi khi đọc dữ liệu gốc:", error);
+            });
+            
+            // Lắng nghe thay đổi dữ liệu từ vehicles
             vehiclesRef.on('value', (snapshot) => {
+                console.log("Nhận dữ liệu từ 'vehicles' node");
                 processFirebaseData(snapshot);
             }, (error) => {
-                console.error("Lỗi kết nối Firebase:", error);
-                addAlert('danger', 'Lỗi kết nối', 'Không thể kết nối với Firebase');
+                console.error("Lỗi kết nối Firebase 'vehicles':", error);
+                addAlert('danger', 'Lỗi kết nối', 'Không thể kết nối với Firebase node "vehicles"');
+                
+                // Thử kết nối với đường dẫn gốc
+                console.log("Thử kết nối với đường dẫn gốc...");
+                rootRef.on('value', (snapshot) => {
+                    console.log("Nhận dữ liệu từ đường dẫn gốc:", snapshot.val());
+                    processFirebaseData(snapshot);
+                });
             });
             
             // Thiết lập sự kiện cho các nút lọc
@@ -1510,7 +1615,9 @@ const firebaseConfig = {
                             bounds.extend([vehicle.lat, vehicle.lng]);
                         }
                     });
-                    map.fitBounds(bounds);
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                } else {
+                    addAlert('info', 'Không có xe', 'Không có xe nào để hiển thị');
                 }
             });
             
@@ -1520,19 +1627,23 @@ const firebaseConfig = {
                     polyline.remove();
                 });
                 polylines = {};
+                addAlert('info', 'Xóa lộ trình', 'Đã xóa tất cả lộ trình trên bản đồ');
             });
             
             // Thiết lập sự kiện cho cài đặt cảnh báo
             document.getElementById('max-speed').addEventListener('change', function() {
                 maxSpeed = parseInt(this.value) || 80;
+                addAlert('info', 'Cập nhật cài đặt', `Tốc độ cảnh báo: ${maxSpeed} km/h`);
             });
             
             document.getElementById('max-temp').addEventListener('change', function() {
                 maxTemp = parseInt(this.value) || 100;
+                addAlert('info', 'Cập nhật cài đặt', `Nhiệt độ cảnh báo: ${maxTemp}°C`);
             });
             
             document.getElementById('offline-time').addEventListener('change', function() {
                 offlineTime = parseInt(this.value) || 10;
+                addAlert('info', 'Cập nhật cài đặt', `Thời gian offline cảnh báo: ${offlineTime} phút`);
             });
             
             // Thêm cảnh báo khởi động hệ thống
@@ -1544,4 +1655,3 @@ const firebaseConfig = {
     </script>
 </body>
 </html>
-
